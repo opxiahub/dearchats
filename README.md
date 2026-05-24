@@ -4,7 +4,7 @@
 
 **Turn years of exported WhatsApp conversations into a beautiful, interactive memory experience.**
 
-DearChats reads a chat export and rebuilds it as a private 3D universe of curated moments — drifting photos, ambient music, and a quiet narrator that points at the things you'd otherwise forget. Not analytics. Not "you sent 42,000 messages." The ordinary messages that become precious years later.
+DearChats reads a chat export and rebuilds it as a private 3D universe of curated moments — drifting photos, ambient music, and a quiet narrator that points at the things you'd otherwise forget. The ordinary messages that become precious years later.
 
 ![DearChats landing](docs/dearchats-landing.png)
 
@@ -60,7 +60,7 @@ DearChats runs a multi-stage AI pipeline: it triages messages, maps the relation
 ### 1. Install
 
 ```bash
-git clone <your-fork-url> dearchats
+git clone https://github.com/opxiahub/dearchats.git
 cd dearchats
 npm install
 ```
@@ -79,7 +79,6 @@ Fill in `.env.local`:
 | `GOOGLE_CLIENT_ID` | ✅ | From the Google Cloud Console |
 | `GOOGLE_CLIENT_SECRET` | ✅ | From the Google Cloud Console |
 | `GOOGLE_CALLBACK_URL` | ✅ | `http://localhost:3000/api/auth/google/callback` for local |
-| `PUBLIC_ORIGIN` | prod only | e.g. `https://your-domain.com` |
 | `OPENAI_MAIN_MODEL` / `OPENAI_MINI_MODEL` / `OPENAI_VISION_MODEL` | optional | Override the default models |
 
 > **Google OAuth setup:** create OAuth credentials in the [Google Cloud Console](https://console.cloud.google.com/apis/credentials) and add `http://localhost:3000/api/auth/google/callback` as an Authorized redirect URI.
