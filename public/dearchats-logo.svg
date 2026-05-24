@@ -1,0 +1,108 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="68%">
+      <stop offset="0%" stop-color="#1B130D"/>
+      <stop offset="60%" stop-color="#0C0907"/>
+      <stop offset="100%" stop-color="#050403"/>
+    </radialGradient>
+    <radialGradient id="warmth" cx="50%" cy="58%" r="55%">
+      <stop offset="0%" stop-color="#C77B6A" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#C77B6A" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="polaroidFace" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FCF5E1"/>
+      <stop offset="60%" stop-color="#F1E6C9"/>
+      <stop offset="100%" stop-color="#DDC79E"/>
+    </linearGradient>
+    <linearGradient id="polaroidEdge" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFAE6"/>
+      <stop offset="100%" stop-color="#C6AC78"/>
+    </linearGradient>
+    <radialGradient id="interior" cx="50%" cy="45%" r="65%">
+      <stop offset="0%" stop-color="#2A1B14"/>
+      <stop offset="60%" stop-color="#140C09"/>
+      <stop offset="100%" stop-color="#070504"/>
+    </radialGradient>
+
+    <radialGradient id="starGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFE89A" stop-opacity="0.85"/>
+      <stop offset="45%" stop-color="#E6B84A" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#E6B84A" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="starCore" cx="38%" cy="34%" r="68%">
+      <stop offset="0%" stop-color="#FFF7CC"/>
+      <stop offset="50%" stop-color="#EBC256"/>
+      <stop offset="100%" stop-color="#8A5E14"/>
+    </radialGradient>
+
+    <filter id="cardShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="10"/>
+      <feOffset dx="0" dy="14" result="off"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.55"/></feComponentTransfer>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="starShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+      <feOffset dx="0" dy="2" result="off"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.5"/></feComponentTransfer>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="112" fill="url(#warmth)"/>
+  <rect x="22" y="22" width="468" height="468" rx="96" fill="none" stroke="#F1EAD8" stroke-opacity="0.08" stroke-width="1.5"/>
+
+  <g opacity="0.55" fill="#F1EAD8">
+    <circle cx="86" cy="96" r="1.5"/>
+    <circle cx="438" cy="86" r="1.2"/>
+    <circle cx="72" cy="252" r="1.3"/>
+    <circle cx="450" cy="234" r="1.1"/>
+    <circle cx="98" cy="436" r="1.2"/>
+    <circle cx="426" cy="448" r="1.3"/>
+    <circle cx="256" cy="74" r="1.1"/>
+    <circle cx="380" cy="412" r="1.0"/>
+  </g>
+
+  <g transform="translate(256 264) rotate(-7) translate(-256 -264)" filter="url(#cardShadow)">
+    <rect x="116" y="108" width="280" height="312" rx="10" fill="url(#polaroidEdge)"/>
+    <rect x="120" y="112" width="272" height="304" rx="8" fill="url(#polaroidFace)"/>
+    <rect x="140" y="132" width="232" height="232" rx="3" fill="url(#interior)"/>
+    <rect x="140" y="132" width="232" height="232" rx="3" fill="none" stroke="#1B0608" stroke-opacity="0.85" stroke-width="2"/>
+
+    <g opacity="0.5" fill="#F1EAD8">
+      <circle cx="172" cy="172" r="1.2"/>
+      <circle cx="216" cy="156" r="1.0"/>
+      <circle cx="332" cy="170" r="1.3"/>
+      <circle cx="350" cy="220" r="1.1"/>
+      <circle cx="160" cy="260" r="1.0"/>
+      <circle cx="200" cy="332" r="1.1"/>
+      <circle cx="304" cy="324" r="1.2"/>
+      <circle cx="344" cy="340" r="1.0"/>
+      <circle cx="184" cy="208" r="0.9"/>
+    </g>
+
+    <circle cx="256" cy="248" r="74" fill="url(#starGlow)"/>
+    <g filter="url(#starShadow)">
+      <circle cx="256" cy="248" r="22" fill="url(#starCore)"/>
+      <circle cx="249" cy="241" r="6.5" fill="#FFFAE0"/>
+    </g>
+
+    <g stroke="#FFE89A" stroke-opacity="0.55" stroke-width="1.5" stroke-linecap="round">
+      <line x1="256" y1="212" x2="256" y2="198"/>
+      <line x1="256" y1="284" x2="256" y2="298"/>
+      <line x1="220" y1="248" x2="206" y2="248"/>
+      <line x1="292" y1="248" x2="306" y2="248"/>
+    </g>
+
+    <rect x="180" y="382" width="112" height="6" rx="2" fill="#7A2620" fill-opacity="0.45"/>
+    <rect x="180" y="394" width="64" height="4" rx="2" fill="#7A2620" fill-opacity="0.30"/>
+  </g>
+</svg>
