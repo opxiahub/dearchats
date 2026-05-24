@@ -80,6 +80,7 @@ Fill in `.env.local`:
 | `GOOGLE_CLIENT_SECRET` | ✅ | From the Google Cloud Console |
 | `GOOGLE_CALLBACK_URL` | ✅ | `http://localhost:3000/api/auth/google/callback` for local |
 | `OPENAI_MAIN_MODEL` / `OPENAI_MINI_MODEL` / `OPENAI_VISION_MODEL` | optional | Override the default models |
+| `NEXT_PUBLIC_MAX_UPLOAD_MB` | optional | Max upload size in MB (defaults to `250`) |
 
 > **Google OAuth setup:** create OAuth credentials in the [Google Cloud Console](https://console.cloud.google.com/apis/credentials) and add `http://localhost:3000/api/auth/google/callback` as an Authorized redirect URI.
 

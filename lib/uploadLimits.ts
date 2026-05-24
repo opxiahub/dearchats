@@ -9,9 +9,25 @@
 // liability on a small host.
 //
 // Bump this when you bump the VM's memory — not before.
+//
+// Override the cap with NEXT_PUBLIC_MAX_UPLOAD_MB (megabytes). It must be
+// NEXT_PUBLIC_-prefixed because this module is imported by the client drop
+// zone too — a bare env var would be undefined in the browser bundle and the
+// client/server caps would silently disagree. Defaults to 250 MB if unset or
+// invalid.
 
-export const MAX_UPLOAD_BYTES = 250 * 1024 * 1024;
-export const MAX_UPLOAD_LABEL = "250 MB";
+const DEFAULT_MAX_UPLOAD_MB = 250;
+
+function resolveMaxUploadMB(): number {
+  const raw = process.env.NEXT_PUBLIC_MAX_UPLOAD_MB;
+  const parsed = raw ? Number(raw) : NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_MAX_UPLOAD_MB;
+}
+
+const MAX_UPLOAD_MB = resolveMaxUploadMB();
+
+export const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
+export const MAX_UPLOAD_LABEL = `${MAX_UPLOAD_MB} MB`;
 
 export function formatMB(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
