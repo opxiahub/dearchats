@@ -12,6 +12,8 @@ export interface MediaRow {
   height: number | null;
   has_person: number | null;     // 1, 0, or null (unclassified)
   kind: string | null;            // photo|screenshot|wallpaper|other|null
+  score: number | null;          // 0..3 memorability, or null (unclassified)
+  caption: string | null;        // one-line vision description, or null
 }
 
 export function updateMediaClassification(
@@ -19,11 +21,20 @@ export function updateMediaClassification(
   filename: string,
   has_person: boolean,
   kind: string,
+  score?: number | null,
+  caption?: string | null,
 ) {
   const db = getDB();
   db.prepare(
-    "UPDATE walk_media SET has_person = ?, kind = ? WHERE walk_id = ? AND filename = ?",
-  ).run(has_person ? 1 : 0, kind, walkId, path.basename(filename));
+    "UPDATE walk_media SET has_person = ?, kind = ?, score = ?, caption = ? WHERE walk_id = ? AND filename = ?",
+  ).run(
+    has_person ? 1 : 0,
+    kind,
+    score == null ? null : Math.max(0, Math.min(3, Math.round(score))),
+    caption ?? null,
+    walkId,
+    path.basename(filename),
+  );
 }
 
 const IMAGE_EXT = /\.(jpe?g|png|webp)$/i;

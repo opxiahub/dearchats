@@ -32,8 +32,10 @@ const CLASSIFY_SCHEMA = {
             index: { type: "integer" },
             has_person: { type: "boolean" },
             kind: { type: "string", enum: ["photo", "screenshot", "wallpaper", "other"] },
+            score: { type: "integer", minimum: 0, maximum: 3 },
+            caption: { type: "string" },
           },
-          required: ["index", "has_person", "kind"],
+          required: ["index", "has_person", "kind", "score", "caption"],
           additionalProperties: false,
         },
       },
@@ -47,6 +49,8 @@ const SYSTEM = `You classify images for a private digital scrapbook.
 For each image return:
   has_person: true if there is at least one real human visible (face, body, silhouette, group). False for landscapes, food alone, screenshots, app UI, wallpapers, memes, forwarded graphics with no real human, drawings/cartoons.
   kind: one of "photo" (a real photograph of people/places/things from the user's life), "screenshot" (UI screenshot, app screenshot), "wallpaper" (decorative wallpaper, festival greeting, downloaded background, meme, forwarded graphic), "other" (anything else).
+  score: 0-3, how worthy this image is of appearing in an intimate keepsake memory film about the two people. 3 = a clear, meaningful personal photo of the people together or a moment from their life (a trip, a celebration, a candid shot). 2 = a decent personal photo (one of them, a place they were, a thing that mattered). 1 = a weak personal photo (blurry, accidental, generic). 0 = NOT for the film: screenshots, wallpapers, memes, forwarded graphics, app UI, downloaded images. A screenshot or wallpaper is always 0.
+  caption: a short, plain, factual one-line description of what the image shows (e.g. "two people on a beach at sunset", "a birthday cake with candles", "a screenshot of a chat"). No emotion words, no guessing names.
 Respond ONLY in the JSON schema given. Order MUST match input order — set "index" to the integer position 0..N-1.`;
 
 interface Item {
@@ -93,12 +97,12 @@ async function classifyBatch(walkId: string, items: Item[]): Promise<void> {
       return;
     }
     const parsed = JSON.parse(text) as {
-      classifications: Array<{ index: number; has_person: boolean; kind: string }>;
+      classifications: Array<{ index: number; has_person: boolean; kind: string; score?: number; caption?: string }>;
     };
     for (const c of parsed.classifications) {
       const it = items[c.index];
       if (!it) continue;
-      updateMediaClassification(walkId, it.filename, c.has_person, c.kind);
+      updateMediaClassification(walkId, it.filename, c.has_person, c.kind, c.score, c.caption);
     }
   } catch (err) {
     console.error("[imageClassifier] batch failed:", err);

@@ -21,6 +21,8 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ walkId: st
       ts: r.ts,
       has_person: r.has_person === null ? null : r.has_person === 1,
       kind: r.kind,
+      score: r.score,
+      caption: r.caption,
       url: `/api/media/${walkId}/${encodeURIComponent(r.filename)}`,
     })),
   });

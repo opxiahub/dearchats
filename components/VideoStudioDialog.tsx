@@ -19,6 +19,8 @@ interface MediaItem {
   filename: string;
   has_person?: boolean | null;
   kind?: string | null;
+  score?: number | null;
+  caption?: string | null;
 }
 
 interface Props {
@@ -51,6 +53,7 @@ export default function VideoStudioDialog({ open, walk, media, onClose, onPauseM
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [customizing, setCustomizing] = useState(false);
+  const [confirmRemake, setConfirmRemake] = useState(false);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(false);
 
@@ -62,6 +65,8 @@ export default function VideoStudioDialog({ open, walk, media, onClose, onPauseM
         ts: m.ts,
         has_person: m.has_person ?? null,
         kind: m.kind ?? null,
+        score: m.score ?? null,
+        caption: m.caption ?? null,
       })),
     [media],
   );
@@ -160,7 +165,8 @@ export default function VideoStudioDialog({ open, walk, media, onClose, onPauseM
     setError("");
   }
 
-  async function createFilm() {
+  async function createFilm(overrideOptions?: FilmOptions) {
+    const useOptions = overrideOptions ?? options;
     onPauseMusic?.();
     try {
       getMusic().setMuted(true, 1200);
@@ -173,7 +179,7 @@ export default function VideoStudioDialog({ open, walk, media, onClose, onPauseM
       const res = await fetch(`/api/walk/${walk.session_id}/film`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ options }),
+        body: JSON.stringify({ options: useOptions }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -324,7 +330,7 @@ export default function VideoStudioDialog({ open, walk, media, onClose, onPauseM
                   <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <button
                       type="button"
-                      onClick={createFilm}
+                      onClick={() => (videoUrl ? setConfirmRemake(true) : createFilm())}
                       disabled={rendering}
                       className="flex min-h-12 items-center justify-center rounded-full border border-gold/40 bg-gold/15 px-4 py-3 text-center text-[11px] tracking-[0.18em] uppercase leading-snug text-parchment hover:border-gold/70 hover:bg-gold/20 disabled:opacity-45 transition touch-target"
                     >
@@ -369,6 +375,19 @@ export default function VideoStudioDialog({ open, walk, media, onClose, onPauseM
               hasMedia={media.length > 0}
               onClose={() => setCustomizing(false)}
               onUpdate={updateOptions}
+            />
+            <RemakeConfirmDialog
+              open={confirmRemake}
+              canSave={!!videoUrl}
+              onSave={downloadFilm}
+              onCancel={() => setConfirmRemake(false)}
+              onConfirm={() => {
+                setConfirmRemake(false);
+                // Fully fresh remake: reset customizations to defaults and
+                // re-run the whole cut (director + photo picks vary by film id).
+                setOptions(DEFAULT_FILM_OPTIONS);
+                createFilm(DEFAULT_FILM_OPTIONS);
+              }}
             />
           </motion.div>
         </motion.div>
@@ -550,6 +569,88 @@ function CustomizeFilmDialog({
             >
               Done
             </button>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+function RemakeConfirmDialog({
+  open,
+  canSave,
+  onSave,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  canSave: boolean;
+  onSave: () => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCancel();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onCancel, open]);
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          className="absolute inset-0 z-30 flex items-stretch sm:items-center justify-center sm:rounded-2xl bg-[#070504]/85 px-4 py-5 backdrop-blur-md pad-safe-bottom pad-safe-top"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onMouseDown={onCancel}
+        >
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Remake memory film"
+            initial={{ opacity: 0, y: 14, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.98 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            className="relative w-full max-w-md max-h-full overflow-y-auto memory-scroll rounded-2xl border border-parchment/15 bg-[#0d0a09] px-6 py-7 shadow-2xl shadow-black/70"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <p className="text-[10px] tracking-[0.32em] uppercase text-mist/50 mb-4">remake film</p>
+            <h3 className="serif text-2xl leading-tight text-parchment">Replace your current film?</h3>
+            <p className="mt-3 text-sm leading-relaxed text-mist/70">
+              Each walk keeps one memory film. We&rsquo;ll cut a fresh film from the default settings — it
+              replaces the current one once it&rsquo;s ready, and the old version can&rsquo;t be recovered.
+              Save a copy first if you&rsquo;d like to keep it.
+            </p>
+            {canSave && (
+              <button
+                type="button"
+                onClick={onSave}
+                className="mt-5 w-full rounded-full border border-parchment/18 bg-parchment/[0.04] px-5 py-3 text-xs tracking-[0.22em] uppercase text-parchment/85 hover:border-parchment/40 transition touch-target"
+              >
+                Save current film first
+              </button>
+            )}
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={onCancel}
+                className="rounded-full border border-parchment/18 bg-parchment/[0.04] px-5 py-3 text-xs tracking-[0.22em] uppercase text-parchment/85 hover:border-parchment/40 transition touch-target"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={onConfirm}
+                className="rounded-full border border-gold/40 bg-gold/15 px-5 py-3 text-xs tracking-[0.22em] uppercase text-parchment hover:border-gold/70 hover:bg-gold/20 transition touch-target"
+              >
+                Continue
+              </button>
+            </div>
           </motion.div>
         </motion.div>
       )}

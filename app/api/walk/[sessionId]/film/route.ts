@@ -104,6 +104,8 @@ export async function POST(
     has_person:
       m.has_person == null ? null : m.has_person === 1,
     kind: m.kind,
+    score: m.score,
+    caption: m.caption,
   }));
 
   const filmId = `f_${crypto.randomBytes(10).toString("hex")}`;

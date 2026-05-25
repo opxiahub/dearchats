@@ -6,7 +6,7 @@ import { promisify } from "util";
 import { MOOD_TONE } from "@/components/universe/moodTone";
 import { getDataDir } from "@/lib/db";
 import { mediaPath } from "@/lib/db/media";
-import { updateFilm } from "@/lib/db/films";
+import { updateFilm, listFilmsForWalk, deleteFilm } from "@/lib/db/films";
 import type { MomentOut, Walk } from "@/lib/types";
 import {
   buildFilmScenes,
@@ -71,7 +71,10 @@ export async function renderFilmServer(input: RenderInput): Promise<RenderResult
       console.warn(`[renderFilmServer] director threw, using deterministic arc: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    const scenes = buildFilmScenes(walk, media, options, plan);
+    // Seed photo tie-breaks off the (random) film id so each render — including
+    // remakes — varies its photo picks rather than reproducing the same cut.
+    const seed = [...filmId].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 0);
+    const scenes = buildFilmScenes(walk, media, options, plan, seed);
     const totalDuration = scenes.reduce((sum, s) => sum + s.duration, 0);
 
     updateFilm(filmId, { progress: 0.05, stage: "preparing scenes" });
@@ -109,9 +112,22 @@ export async function renderFilmServer(input: RenderInput): Promise<RenderResult
       bytes: stat.size,
       duration_seconds: totalDuration,
     });
+    // GC: this render succeeded and is now playable/downloadable, so drop every
+    // older film for this walk (mp4 + row). Keeps exactly one film per walk on disk.
+    await cleanupOldFilms(walk.session_id, filmId);
     return { mp4Path, bytes: stat.size, duration: totalDuration };
   } finally {
     await fs.rm(workRoot, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+async function cleanupOldFilms(walkId: string, keepId: string): Promise<void> {
+  const filmsDir = path.join(getDataDir(), "films", walkId);
+  for (const f of listFilmsForWalk(walkId)) {
+    if (f.id === keepId) continue;
+    const mp4 = f.mp4_path ?? path.join(filmsDir, `${f.id}.mp4`);
+    await fs.unlink(mp4).catch(() => {});
+    deleteFilm(f.id);
   }
 }
 

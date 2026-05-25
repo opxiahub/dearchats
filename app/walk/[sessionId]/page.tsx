@@ -630,10 +630,11 @@ function ChromeMenu({
                 <div className="h-px bg-parchment/10" />
                 <Link
                   href="/profile"
-                  className="block w-full text-left px-4 py-3 text-xs tracking-[0.22em] uppercase text-mist hover:bg-parchment/[0.04] hover:text-parchment transition"
+                  className="flex w-full items-center gap-3 px-4 py-3 text-xs tracking-[0.22em] uppercase text-mist hover:bg-parchment/[0.04] hover:text-parchment transition"
                   onClick={() => setOpen(false)}
                 >
-                  View generations
+                  <MenuIcon kind="gallery" />
+                  <span>View generations</span>
                 </Link>
                 <a
                   href="https://github.com/opxiahub/dearchats"
@@ -647,9 +648,10 @@ function ChromeMenu({
                 </a>
                 <a
                   href="/api/auth/signout"
-                  className="block w-full text-left px-4 py-3 text-xs tracking-[0.22em] uppercase text-mist hover:bg-parchment/[0.04] hover:text-parchment transition"
+                  className="flex w-full items-center gap-3 px-4 py-3 text-xs tracking-[0.22em] uppercase text-mist hover:bg-parchment/[0.04] hover:text-parchment transition"
                 >
-                  Sign out
+                  <MenuIcon kind="signout" />
+                  <span>Sign out</span>
                 </a>
               </>
             )}
@@ -702,13 +704,15 @@ function GitHubIcon() {
   );
 }
 
-function MenuIcon({ kind }: { kind: "book" | "note" | "doc" | "star" | "film" }) {
+function MenuIcon({ kind }: { kind: "book" | "note" | "doc" | "star" | "film" | "gallery" | "signout" }) {
   const p = {
     book: "M3 3h7a2 2 0 012 2v8H5a2 2 0 00-2 2V3z",
     note: "M5 11V3l8-1v8M5 11a2 2 0 11-2-2 2 2 0 012 2zm8-1a2 2 0 11-2-2 2 2 0 012 2z",
     doc: "M4 2h5l4 4v8H4V2zM9 2v4h4",
     star: "M8 1l2 5 5 .5-4 3.5 1.5 5L8 12l-4.5 3 1.5-5L1 6.5 6 6z",
     film: "M3 3h10v10H3V3zM6 3v10M10 3v10M3 6h10M3 10h10",
+    gallery: "M2.5 3.5h11v9h-11v-9zM5 7a1 1 0 100-2 1 1 0 000 2zM3 12l3.5-3.5L9 11l2.5-2.5L13 10",
+    signout: "M9.5 2.5H3v11h6.5M7 8h7M11.5 5.5L14 8l-2.5 2.5",
   } as const;
   return (
     <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden className="shrink-0">

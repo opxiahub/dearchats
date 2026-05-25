@@ -26,6 +26,8 @@ export interface FilmMedia {
   ts: string | null;
   has_person?: boolean | null;
   kind?: string | null;
+  score?: number | null;  // 0..3 memorability from the vision classifier
+  caption?: string | null; // one-line vision description
 }
 
 /**
@@ -82,7 +84,7 @@ function photoBeatTargetFor(options: FilmOptions): number {
  * shared photos. Pass this to the Film Director so it builds a complete arc. */
 export function plannedTextCount(media: FilmMedia[], options: FilmOptions): number {
   const spec = LENGTH_SPEC[options.length];
-  const beats = selectPhotoBeats(media, photoBeatTargetFor(options)).length;
+  const beats = availablePhotoCount(media, photoBeatTargetFor(options));
   return Math.max(2, spec.moments - beats);
 }
 
@@ -101,6 +103,7 @@ export function buildFilmScenes(
   media: FilmMedia[],
   options: FilmOptions,
   plan?: FilmPlan | null,
+  seed = 0,
 ): FilmScene[] {
   const spec = LENGTH_SPEC[options.length];
 
@@ -108,10 +111,13 @@ export function buildFilmScenes(
   // never forced under an unrelated emotional caption. This is the only honest
   // way to use them: WhatsApp photos rarely land on the same day as a curated
   // text moment, so pairing them is either empty (strict) or random (loose).
-  const photoBeats = selectPhotoBeats(media, photoBeatTargetFor(options));
+  // How many beats we'll fill is independent of which photos / seed, so the text
+  // budget below stays stable.
+  const photoTarget = photoBeatTargetFor(options);
+  const photoCount = availablePhotoCount(media, photoTarget);
 
   // Text moments fill the rest of the beat budget so total length stays on target.
-  const textCount = Math.max(2, spec.moments - photoBeats.length);
+  const textCount = Math.max(2, spec.moments - photoCount);
 
   // Pick the moments that carry the arc. The director's order wins when present;
   // otherwise build an arc deterministically (chapter + year + mood spread).
@@ -126,6 +132,14 @@ export function buildFilmScenes(
   } else {
     picked = selectArcMoments(walk.moments, textCount);
   }
+
+  // Now choose the actual photos: best vision score per timeline segment, biased
+  // toward the dates of the moments that made the cut so photos sit near a
+  // related beat. `seed` varies the picks between renders (fresh remakes).
+  const photoBeats = selectPhotoBeats(media, photoTarget, {
+    anchorDates: picked.map((m) => m.date),
+    seed,
+  });
 
   const scenes: FilmScene[] = [
     { kind: "opening", duration: spec.opening, line: plan?.opening_line },
@@ -285,41 +299,108 @@ interface PhotoBeat {
 }
 
 /**
- * Choose up to `target` real shared photos to show as their own beats. Prefers
- * people-photos over screenshots/wallpapers, then spreads the picks across the
- * timeline (even-stride sample of the time-sorted pool) so the film covers the
- * whole span instead of clustering one period. Returns [] when photos are off
- * or none were uploaded → the film is then all text.
+ * Build the candidate pool of film-worthy photos: real photos first
+ * (screenshots/wallpapers excluded when we have enough real ones), and anything
+ * the vision classifier scored 0 (screenshot/wallpaper/junk) is never eligible
+ * unless it's all we have.
  */
-function selectPhotoBeats(media: FilmMedia[], target: number): PhotoBeat[] {
+function photoPool(media: FilmMedia[], target: number): FilmMedia[] {
+  const ranked = [...media].sort((a, b) => tierOf(a) - tierOf(b));
+  const good = ranked.filter((m) => tierOf(m) <= 2 && (m.score == null || m.score >= 1));
+  if (good.length >= Math.max(1, target)) return good;
+  // Fall back gradually so a sparse album still produces something.
+  const decent = ranked.filter((m) => tierOf(m) <= 3);
+  return decent.length >= Math.max(1, target) ? decent : ranked;
+}
+
+/** How many photo beats the film will actually show (count is seed-independent). */
+function availablePhotoCount(media: FilmMedia[], target: number): number {
+  if (target <= 0 || media.length === 0) return 0;
+  return Math.min(target, photoPool(media, target).length);
+}
+
+/**
+ * Choose up to `target` real shared photos to show as their own beats. Quality
+ * comes from the vision classifier's memorability score (people-photos and
+ * meaningful shots rank highest); spread comes from splitting the timeline into
+ * `target` segments and taking the best-scoring photo in each, biased toward the
+ * dates of the moments that made the cut so a photo sits near a related beat. A
+ * `seed` breaks ties differently between renders, so fresh remakes vary.
+ * Returns [] when photos are off or none were uploaded → the film is all text.
+ */
+function selectPhotoBeats(
+  media: FilmMedia[],
+  target: number,
+  opts?: { anchorDates?: string[]; seed?: number },
+): PhotoBeat[] {
   if (target <= 0 || media.length === 0) return [];
 
-  const ranked = [...media].sort((a, b) => tierOf(a) - tierOf(b));
-  const good = ranked.filter((m) => tierOf(m) <= 2);
-  const pool = good.length >= target ? good : ranked;
+  const seed = opts?.seed ?? 0;
+  const anchors = (opts?.anchorDates ?? [])
+    .map(toDayNumber)
+    .filter((d): d is number => d != null);
+
+  const pool = photoPool(media, target);
+  const composite = (m: FilmMedia): number => {
+    let s = m.score == null ? 1.5 : m.score; // unscored → neutral-positive
+    if (m.has_person === true) s += 1.5;
+    if (m.kind === "photo") s += 0.5;
+    const day = toDayNumber(m.ts);
+    if (anchors.length && day != null) {
+      const dist = Math.min(...anchors.map((a) => Math.abs(a - day)));
+      if (dist <= 7) s += 1.2;
+      else if (dist <= 31) s += 0.6;
+    }
+    return s;
+  };
 
   const dated = pool.filter((m) => m.ts).sort((a, b) => (a.ts as string).localeCompare(b.ts as string));
   const undated = pool.filter((m) => !m.ts);
-  const ordered = [...dated, ...undated];
 
-  const picks = evenSample(ordered, target);
-  return picks.map((photo) => ({ photo, label: photoLabel(photo.ts) }));
-}
-
-// Pick `n` items spread evenly across `arr` (indices deduped so a short array
-// never yields the same item twice).
-function evenSample<T>(arr: T[], n: number): T[] {
-  if (arr.length <= n) return arr;
-  const seen = new Set<number>();
-  const out: T[] = [];
-  for (let i = 0; i < n; i++) {
-    const idx = Math.round((i * (arr.length - 1)) / (n - 1));
-    if (!seen.has(idx)) {
-      seen.add(idx);
-      out.push(arr[idx]);
+  const chosen: FilmMedia[] = [];
+  if (dated.length) {
+    const segs = Math.min(target, dated.length);
+    for (let i = 0; i < segs; i++) {
+      const start = Math.floor((i * dated.length) / segs);
+      const end = Math.max(Math.floor(((i + 1) * dated.length) / segs), start + 1);
+      const slice = dated.slice(start, end).filter((m) => !chosen.includes(m));
+      if (slice.length === 0) continue;
+      const sorted = [...slice].sort((a, b) => composite(b) - composite(a));
+      // Pick among the top contenders so equally-strong photos rotate per seed.
+      const topN = sorted.slice(0, Math.min(2, sorted.length));
+      chosen.push(topN[seededIndex(seed + i, topN.length)]);
     }
   }
-  return out;
+  // Fill any remaining slots by raw composite (leftover dated, then undated).
+  if (chosen.length < target) {
+    const rest = [...dated, ...undated]
+      .filter((m) => !chosen.includes(m))
+      .sort((a, b) => composite(b) - composite(a));
+    for (const m of rest) {
+      if (chosen.length >= target) break;
+      chosen.push(m);
+    }
+  }
+
+  chosen.sort((a, b) => (a.ts ?? "9999-12-31").localeCompare(b.ts ?? "9999-12-31"));
+  return chosen.slice(0, target).map((photo) => ({ photo, label: photoLabel(photo.ts) }));
+}
+
+// Days since epoch from an ISO date string (YYYY-MM-DD), or null.
+function toDayNumber(ts: string | null | undefined): number | null {
+  if (!ts) return null;
+  const t = Date.parse(ts);
+  return Number.isNaN(t) ? null : Math.floor(t / 86_400_000);
+}
+
+// Deterministic index in [0, n) from an integer seed — used to vary tie-breaks
+// between renders without any global RNG state.
+function seededIndex(seed: number, n: number): number {
+  if (n <= 1) return 0;
+  let x = (seed * 2654435761) >>> 0;
+  x ^= x >>> 15;
+  x = (x * 2246822519) >>> 0;
+  return x % n;
 }
 
 function tierOf(item: FilmMedia): number {

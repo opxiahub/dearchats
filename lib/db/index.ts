@@ -97,6 +97,8 @@ function open(): Database.Database {
       height INTEGER,
       has_person INTEGER,               -- 1 if a person is visible, 0 if not, NULL until classified
       kind TEXT,                        -- photo|screenshot|wallpaper|other|null
+      score INTEGER,                    -- 0..3 memorability/keep-worthiness, NULL until classified
+      caption TEXT,                     -- one-line vision description, NULL until classified
       PRIMARY KEY (walk_id, filename)
     );
 
@@ -132,6 +134,12 @@ function open(): Database.Database {
     }
     if (!mcols.some((c) => c.name === "kind")) {
       db.exec("ALTER TABLE walk_media ADD COLUMN kind TEXT");
+    }
+    if (!mcols.some((c) => c.name === "score")) {
+      db.exec("ALTER TABLE walk_media ADD COLUMN score INTEGER");
+    }
+    if (!mcols.some((c) => c.name === "caption")) {
+      db.exec("ALTER TABLE walk_media ADD COLUMN caption TEXT");
     }
     if (!wcols.some((c) => c.name === "user_gender")) {
       db.exec("ALTER TABLE walks ADD COLUMN user_gender TEXT");
