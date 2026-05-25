@@ -1,6 +1,15 @@
 import Link from "next/link";
 
-export default function BrandMark({ compact = false }: { compact?: boolean }) {
+export default function BrandMark({
+  compact = false,
+  hideLabelOnMobile = false,
+}: {
+  compact?: boolean;
+  // Drops the wordmark below `sm` so the logo alone represents the brand on
+  // phones — used where the top chrome is tight (e.g. the landing header, which
+  // centers a GitHub pill between the brand and the profile photo).
+  hideLabelOnMobile?: boolean;
+}) {
   return (
     <Link
       href="/"
@@ -10,7 +19,7 @@ export default function BrandMark({ compact = false }: { compact?: boolean }) {
       <span className={`${compact ? "h-8 w-8 sm:h-9 sm:w-9" : "h-9 w-9 sm:h-10 sm:w-10"} shrink-0 rounded-xl overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.35)]`}>
         <img src="/dearchats-logo.svg" alt="" className="h-full w-full object-cover" />
       </span>
-      <span className="text-[10px] sm:text-[11px] tracking-[0.28em] sm:tracking-[0.34em] uppercase text-mist/75 group-hover:text-parchment whitespace-nowrap">
+      <span className={`${hideLabelOnMobile ? "hidden sm:inline" : ""} text-[10px] sm:text-[11px] tracking-[0.28em] sm:tracking-[0.34em] uppercase text-mist/75 group-hover:text-parchment whitespace-nowrap`}>
         DearChats
       </span>
     </Link>

@@ -18,6 +18,32 @@ function fireAfterResponse(task: () => Promise<void>) {
   }, 0);
 }
 
+// WhatsApp group exports carry system lines that one-on-one chats never do.
+// Two or more of these markers (or 3+ people each carrying a real share of the
+// messages) means this is a group — which DearChats does not support. We detect
+// it explicitly instead of silently building a walk from the two loudest
+// participants, which is what the old top-2 pick would have done.
+const GROUP_MARKERS =
+  /(created (this |the )?group|added you|\badded\b|\bremoved\b|\bleft\b|changed the subject|changed this group's|changed the group|group description|you're now an admin|became an admin|joined using|via invite link|changed to a community|added via)/i;
+
+function looksLikeGroup(parsed: { messages: { sender: string; text: string; isSystem?: boolean }[] }): boolean {
+  const counts = new Map<string, number>();
+  let groupSystemHits = 0;
+  for (const m of parsed.messages) {
+    if (m.isSystem) {
+      if (GROUP_MARKERS.test(m.text)) groupSystemHits++;
+    } else {
+      counts.set(m.sender, (counts.get(m.sender) ?? 0) + 1);
+    }
+  }
+  const total = [...counts.values()].reduce((a, b) => a + b, 0);
+  // A "real" participant carries at least 2% of the traffic or 10 messages —
+  // this filters out one-off senders from a forwarded contact or a name change.
+  const threshold = Math.max(10, total * 0.02);
+  const realParticipants = [...counts.values()].filter((c) => c >= threshold).length;
+  return groupSystemHits >= 2 || realParticipants >= 3;
+}
+
 /**
  * /api/inspect — uploads the file, parses the chat text, returns immediately.
  *
@@ -91,6 +117,21 @@ export async function POST(req: NextRequest) {
         { status: 413 },
       );
     }
+    if (file.size === 0) {
+      return NextResponse.json(
+        { error: "That file is empty. In WhatsApp, open your chat → Export Chat, then upload the file you get." },
+        { status: 400 },
+      );
+    }
+    // Guard the file type server-side too — the client picker filters by
+    // extension, but drag-and-drop and direct API calls can bypass that.
+    const lowerName = file.name.toLowerCase();
+    if (!lowerName.endsWith(".zip") && !lowerName.endsWith(".txt")) {
+      return NextResponse.json(
+        { error: "That doesn't look like a WhatsApp export. Upload the .zip or .txt file you get from Export Chat in WhatsApp." },
+        { status: 400 },
+      );
+    }
     const buf = Buffer.from(await file.arrayBuffer());
 
     // Read just the bits we need to return the response: the chat text and
@@ -99,14 +140,22 @@ export async function POST(req: NextRequest) {
     let raw: string;
     let imageEntries: JSZip.JSZipObject[] = [];
     let totalImageCount = 0;
-    if (file.name.toLowerCase().endsWith(".zip")) {
-      const zip = await JSZip.loadAsync(buf);
+    if (lowerName.endsWith(".zip")) {
+      let zip: JSZip;
+      try {
+        zip = await JSZip.loadAsync(buf);
+      } catch {
+        return NextResponse.json(
+          { error: "We couldn't open this .zip — it may be incomplete or corrupted. Try downloading the export from WhatsApp again." },
+          { status: 400 },
+        );
+      }
       const txtEntry = Object.values(zip.files).find(
         (f) => !f.dir && f.name.toLowerCase().endsWith(".txt"),
       );
       if (!txtEntry) {
         return NextResponse.json(
-          { error: "No .txt file found inside the zip — is this a WhatsApp export?" },
+          { error: "This .zip has no chat .txt inside, so it isn't a WhatsApp export. In WhatsApp, open a chat → Export Chat, and upload the file you get." },
           { status: 400 },
         );
       }
@@ -120,15 +169,30 @@ export async function POST(req: NextRequest) {
     }
 
     const parsed = parseWhatsAppText(raw);
+
+    // Nothing parsed at all → this isn't a WhatsApp export (wrong file, or an
+    // unsupported date format), not merely a short chat.
+    if (parsed.messages.length === 0) {
+      return NextResponse.json(
+        { error: "We couldn't read any messages from this file, so it doesn't look like a WhatsApp export. In WhatsApp, open a chat → Export Chat, and upload that file." },
+        { status: 400 },
+      );
+    }
+    if (looksLikeGroup(parsed)) {
+      return NextResponse.json(
+        { error: "This looks like a group chat. DearChats is built for one-on-one chats — open a chat with a single person, export that, and upload it." },
+        { status: 400 },
+      );
+    }
     if (parsed.participants.length < 2) {
       return NextResponse.json(
-        { error: "We could only detect one person in this chat. DearChats is for two-person chats only (no groups)." },
+        { error: "We could only find one person in this chat. DearChats needs a two-person conversation to build a walk." },
         { status: 400 },
       );
     }
     if (parsed.messages.length < 50) {
       return NextResponse.json(
-        { error: `Only ${parsed.messages.length} messages parsed. Make sure this is a WhatsApp chat export.` },
+        { error: `This chat has only ${parsed.messages.length} message${parsed.messages.length === 1 ? "" : "s"} — too few to build a memory walk. Try a chat with more history.` },
         { status: 400 },
       );
     }
@@ -162,9 +226,12 @@ export async function POST(req: NextRequest) {
       // truth for what actually landed on disk.
     });
   } catch (err) {
+    // Log the real error for us; show the user something they can act on
+    // instead of a raw stack/internal message.
+    console.error("[inspect] failed", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 400 },
+      { error: "Something went wrong reading your file. Please try again — and if it keeps happening, re-export the chat from WhatsApp." },
+      { status: 500 },
     );
   }
 }

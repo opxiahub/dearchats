@@ -32,6 +32,18 @@ export default function UploadDropZone({ signedIn, wide = false }: { signedIn: b
     };
   }, []);
 
+  // Warn before the user navigates away mid-upload — losing the tab here means
+  // the upload is abandoned and they start over. Only armed while reading.
+  useEffect(() => {
+    if (!reading) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [reading]);
+
   function startReadingState() {
     setReading(true);
     setElapsed(0);
@@ -79,15 +91,26 @@ export default function UploadDropZone({ signedIn, wide = false }: { signedIn: b
           headers: { "Content-Type": xhr.getResponseHeader("Content-Type") || "application/json" },
         }));
       };
-      xhr.onerror = () => reject(new Error("Upload failed"));
-      xhr.onabort = () => reject(new Error("Upload cancelled"));
+      xhr.onerror = () => reject(new Error("Upload failed — check your connection and try again. Keep this tab open while it uploads."));
+      xhr.onabort = () => reject(new Error("Upload was interrupted. Try again and keep this tab open until it finishes."));
       xhr.send(fd);
     });
   }
 
   async function handleFile(file: File) {
     setError("");
-    // Block the upload locally before a single byte hits the network.
+    // Catch obvious problems locally before a single byte hits the network.
+    const lower = file.name.toLowerCase();
+    if (!lower.endsWith(".zip") && !lower.endsWith(".txt")) {
+      setError(
+        "That doesn't look like a WhatsApp export. Upload the .zip or .txt you get from Export Chat in WhatsApp.",
+      );
+      return;
+    }
+    if (file.size === 0) {
+      setError("That file is empty. Try exporting your chat from WhatsApp again.");
+      return;
+    }
     if (file.size > MAX_UPLOAD_BYTES) {
       setError(
         `That file is ${formatMB(file.size)}. The limit is ${MAX_UPLOAD_LABEL}. ${OVERSIZE_HINT}`,
