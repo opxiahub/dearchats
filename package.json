@@ -18,7 +18,7 @@
     "google-auth-library": "^10.6.2",
     "howler": "^2.2.4",
     "jszip": "^3.10.1",
-    "next": "15.1.6",
+    "next": "15.5.18",
     "openai": "^6.38.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

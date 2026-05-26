@@ -5,6 +5,16 @@ import { SESSION_COOKIE } from "@/lib/auth/session";
 
 export const runtime = "nodejs";
 
+function safeRelativePath(value: string | undefined): string {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/";
+  try {
+    const url = new URL(value, "https://dearchats.local");
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return "/";
+  }
+}
+
 function getEnv() {
   const id = process.env.GOOGLE_CLIENT_ID;
   const secret = process.env.GOOGLE_CLIENT_SECRET;
@@ -39,7 +49,7 @@ export async function GET(req: NextRequest) {
   let statePayload: { state: string; next?: string };
   try {
     statePayload = JSON.parse(Buffer.from(stateRaw, "base64url").toString("utf-8"));
-    if (statePayload.next) next = statePayload.next;
+    next = safeRelativePath(statePayload.next);
   } catch {
     return NextResponse.redirect(new URL("/?auth_error=bad_state", origin));
   }

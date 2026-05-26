@@ -3,6 +3,16 @@ import crypto from "crypto";
 
 export const runtime = "nodejs";
 
+function safeRelativePath(value: string | null): string {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/";
+  try {
+    const url = new URL(value, "https://dearchats.local");
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return "/";
+  }
+}
+
 function getEnv() {
   const id = process.env.GOOGLE_CLIENT_ID;
   const cb = process.env.GOOGLE_CALLBACK_URL;
@@ -13,7 +23,7 @@ function getEnv() {
 export async function GET(req: NextRequest) {
   const { id, cb } = getEnv();
   const state = crypto.randomBytes(16).toString("hex");
-  const next = req.nextUrl.searchParams.get("next") || "/";
+  const next = safeRelativePath(req.nextUrl.searchParams.get("next"));
   // Encode 'next' into state so we can redirect back after callback
   const payload = Buffer.from(JSON.stringify({ state, next })).toString("base64url");
 
